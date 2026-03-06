@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="ru" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat Assistant</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Space Grotesk', sans-serif; }
+    
+    .chat-gradient {
+      background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0d0d1f 100%);
+    }
+    
+    .message-user {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    }
+    
+    .message-assistant {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .input-glow {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      transition: all 0.3s ease;
+    }
+    
+    .input-glow:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+    }
+    
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    
+    .btn-secondary.recording {
+      background: rgba(239, 68, 68, 0.3);
+      border-color: #ef4444;
+      animation: pulse-record 1.5s infinite;
+    }
+    
+    @keyframes pulse-record {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      50% { box-shadow: 0 0 20px 5px rgba(239, 68, 68, 0.2); }
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    
+    .floating {
+      animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes typing {
+      0%, 60%, 100% { opacity: 0.3; }
+      30% { opacity: 1; }
+    }
+    
+    .typing-dot {
+      animation: typing 1.4s infinite;
+    }
+    
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .scrollbar-thin::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+    }
+    
+    .image-preview {
+      max-width: 200px;
+      max-height: 150px;
+      border-radius: 12px;
+    }
+    
+    .toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(239, 68, 68, 0.9);
+      padding: 12px 24px;
+      border-radius: 12px;
+      color: white;
+      z-index: 1000;
+      animation: fadeInOut 3s forwards;
+    }
+    
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      90% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+ </head>
+ <body class="h-full m-0 p-0 chat-gradient text-white overflow-hidden">
+  <div id="app" class="h-full w-full flex flex-col"><!-- Header -->
+   <header class="flex-shrink-0 px-6 py-4 border-b border-white/10">
+    <div class="flex items-center gap-4">
+     <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center floating">
+      <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+     </div>
+     <div>
+      <h1 id="assistant-name" class="text-xl font-bold text-white">Nova</h1>
+      <p class="text-sm text-white/60">AI Ассистент • Онлайн</p>
+     </div>
+     <div class="ml-auto flex items-center gap-2">
+      <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div><span class="text-xs text-white/50">Ready</span>
+     </div>
+    </div>
+   </header><!-- Chat Messages -->
+   <main id="chat-container" class="flex-1 overflow-y-auto scrollbar-thin px-6 py-4 space-y-4"><!-- Welcome Message -->
+    <div id="welcome-bubble" class="flex gap-3">
+     <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+     </div>
+     <div class="message-assistant rounded-2xl rounded-tl-md px-4 py-3 max-w-[80%]">
+      <p id="welcome-text" class="text-white/90">Привет! 👋 Я Nova — ваш AI ассистент. Могу общаться на русском и английском. Отправляйте текст, голосовые сообщения 🎤 или изображения 📷!</p>
+     </div>
+    </div>
+   </main><!-- Image Preview Area -->
+   <div id="image-preview-container" class="hidden px-6 py-2 border-t border-white/10">
+    <div class="flex items-center gap-3 bg-white/5 rounded-xl p-3"><img id="image-preview" class="image-preview object-cover" src="" alt="Preview">
+     <div class="flex-1">
+      <p class="text-sm text-white/70">Изображение прикреплено</p>
+      <p id="image-name" class="text-xs text-white/40"></p>
+     </div><button id="remove-image" class="p-2 hover:bg-white/10 rounded-lg transition-colors">
+      <svg class="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg></button>
+    </div>
+   </div><!-- Input Area -->
+   <footer class="flex-shrink-0 px-6 py-4 border-t border-white/10">
+    <div class="flex items-end gap-3"><!-- File Upload --> <input type="file" id="file-input" accept="image/*" class="hidden"> <button id="attach-btn" class="btn-secondary p-3 rounded-xl" title="Прикрепить изображение">
+      <svg class="w-6 h-6 text-white/70" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg></button> <!-- Voice Record --> <button id="voice-btn" class="btn-secondary p-3 rounded-xl" title="Голосовое сообщение">
+      <svg class="w-6 h-6 text-white/70" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+      </svg></button> <!-- Text Input -->
+     <div class="flex-1 relative"><textarea id="message-input" class="input-glow w-full px-4 py-3 rounded-xl text-white placeholder-white/40 resize-none outline-none" placeholder="Напишите сообщение..." rows="1"></textarea>
+     </div><!-- Send Button --> <button id="send-btn" class="btn-primary p-3 rounded-xl" title="Отправить">
+      <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+      </svg></button>
+    </div><!-- Recording Indicator -->
+    <div id="recording-indicator" class="hidden mt-3 flex items-center justify-center gap-2 text-red-400">
+     <div class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div><span class="text-sm">Запись... <span id="record-time">0:00</span></span> <button id="stop-record" class="ml-2 text-xs bg-red-500/20 px-3 py-1 rounded-full hover:bg-red-500/30">Остановить</button>
+    </div>
+   </footer>
+  </div>
+  <script>
+    // Default configuration
+    const defaultConfig = {
+      assistant_name: 'Nova',
+      welcome_message: 'Привет! 👋 Я Nova — ваш AI ассистент. Могу общаться на русском и английском. Отправляйте текст, голосовые сообщения 🎤 или изображения 📷!',
+      primary_color: '#6366f1',
+      secondary_color: '#1a1a3e',
+      text_color: '#ffffff',
+      accent_color: '#8b5cf6',
+      surface_color: '#0f0f23'
+    };
+
+    let config = { ...defaultConfig };
+    let messages = [];
+    let currentImage = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recordingStartTime = null;
+    let recordingTimer = null;
+
+    // AI Response generator
+    const aiResponses = {
+      greetings: [
+        'Привет! Рад вас видеть! Чем могу помочь?',
+        'Здравствуйте! Как я могу вам помочь сегодня?',
+        'Hi there! How can I assist you today?',
+        'Hello! What can I do for you?'
+      ],
+      image: [
+        'Интересное изображение! 📷 Расскажите, что бы вы хотели узнать о нём?',
+        'Получил ваше фото! Что именно вас интересует?',
+        'Nice image! What would you like to know about it?',
+        'Got your picture! How can I help with this?'
+      ],
+      voice: [
+        'Получил ваше голосовое сообщение! 🎤 Обрабатываю...',
+        'Спасибо за голосовое! Уже слушаю...',
+        'Got your voice message! Processing...',
+        'Thanks for the voice note! Listening now...'
+      ],
+      general: [
+        'Интересный вопрос! Позвольте подумать...',
+        'Хороший вопрос! Вот что я думаю...',
+        'That\'s a great question! Let me think...',
+        'Interesting! Here\'s my take on this...'
+      ],
+      fallback: [
+        'Понял вас! Могу помочь с этим.',
+        'Отлично! Давайте разберёмся вместе.',
+        'I understand! Let me help you with that.',
+        'Got it! Let\'s figure this out together.'
+      ]
+    };
+
+    function getAIResponse(type, userMessage) {
+      const responses = aiResponses[type] || aiResponses.fallback;
+      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+      
+      // Add contextual follow-up
+      const followUps = [
+        '\n\nЕсть ещё вопросы? Спрашивайте! 😊',
+        '\n\nМогу ещё чем-то помочь?',
+        '\n\nFeel free to ask anything else!',
+        '\n\nWhat else would you like to know?'
+      ];
+      
+      return randomResponse + followUps[Math.floor(Math.random() * followUps.length)];
+    }
+
+    function detectMessageType(message) {
+      const greetings = ['привет', 'здравствуй', 'hi', 'hello', 'hey', 'добрый'];
+      const lowerMessage = message.toLowerCase();
+      
+      if (greetings.some(g => lowerMessage.includes(g))) {
+        return 'greetings';
+      }
+      return 'general';
+    }
+
+    // Initialize Element SDK
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange: async (newConfig) => {
+          config = { ...config, ...newConfig };
+          updateUI();
+        },
+        mapToCapabilities: (cfg) => ({
+          recolorables: [
+            {
+              get: () => cfg.surface_color || defaultConfig.surface_color,
+              set: (v) => { cfg.surface_color = v; window.elementSdk.setConfig({ surface_color: v }); }
+            },
+            {
+              get: () => cfg.secondary_color || defaultConfig.secondary_color,
+              set: (v) => { cfg.secondary_color = v; window.elementSdk.setConfig({ secondary_color: v }); }
+            },
+            {
+              get: () => cfg.text_color || defaultConfig.text_color,
+              set: (v) => { cfg.text_color = v; window.elementSdk.setConfig({ text_color: v }); }
+            },
+            {
+              get: () => cfg.primary_color || defaultConfig.primary_color,
+              set: (v) => { cfg.primary_color = v; window.elementSdk.setConfig({ primary_color: v }); }
+            },
+            {
+              get: () => cfg.accent_color || defaultConfig.accent_color,
+              set: (v) => { cfg.accent_color = v; window.elementSdk.setConfig({ accent_color: v }); }
+            }
+          ],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (cfg) => new Map([
+          ['assistant_name', cfg.assistant_name || defaultConfig.assistant_name],
+          ['welcome_message', cfg.welcome_message || defaultConfig.welcome_message]
+        ])
+      });
+    }
+
+    // Initialize Data SDK
+    const dataHandler = {
+      onDataChanged(data) {
+        messages = data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        renderMessages();
+      }
+    };
+
+    async function initDataSdk() {
+      if (window.dataSdk) {
+        const result = await window.dataSdk.init(dataHandler);
+        if (!result.isOk) {
+          console.error('Failed to initialize data SDK');
+        }
+      }
+    }
+
+    initDataSdk();
+
+    function updateUI() {
+      const nameEl = document.getElementById('assistant-name');
+      const welcomeEl = document.getElementById('welcome-text');
+      
+      if (nameEl) nameEl.textContent = config.assistant_name || defaultConfig.assistant_name;
+      if (welcomeEl) welcomeEl.textContent = config.welcome_message || defaultConfig.welcome_message;
+      
+      // Update colors
+      document.body.style.background = `linear-gradient(135deg, ${config.surface_color || defaultConfig.surface_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 50%, ${config.surface_color || defaultConfig.surface_color} 100%)`;
+    }
+
+    function renderMessages() {
+      const container = document.getElementById('chat-container');
+      const welcomeBubble = document.getElementById('welcome-bubble');
+      
+      // Keep welcome bubble, remove other messages
+      const existingMessages = container.querySelectorAll('.chat-message');
+      existingMessages.forEach(el => el.remove());
+      
+      messages.forEach(msg => {
+        const messageEl = createMessageElement(msg);
+        container.appendChild(messageEl);
+      });
+      
+      scrollToBottom();
+    }
+
+    function createMessageElement(msg) {
+      const div = document.createElement('div');
+      div.className = `chat-message flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`;
+      div.dataset.messageId = msg.__backendId || msg.id;
+      
+      const isUser = msg.role === 'user';
+      
+      let contentHtml = '';
+      if (msg.type === 'image') {
+        contentHtml = `<p class="text-white/90">[📷 Изображение отправлено]</p><p class="text-white/70 mt-2">${msg.content}</p>`;
+      } else if (msg.type === 'voice') {
+        contentHtml = `<p class="text-white/90">🎤 ${msg.content}</p>`;
+      } else {
+        contentHtml = `<p class="text-white/90">${msg.content}</p>`;
+      }
+      
+      div.innerHTML = `
+        ${!isUser ? `
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+          </div>
+        ` : ''}
+        <div class="${isUser ? 'message-user' : 'message-assistant'} rounded-2xl ${isUser ? 'rounded-tr-md' : 'rounded-tl-md'} px-4 py-3 max-w-[80%]">
+          ${contentHtml}
+        </div>
+        ${isUser ? `
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+          </div>
+        ` : ''}
+      `;
+      
+      return div;
+    }
+
+    function showTypingIndicator() {
+      const container = document.getElementById('chat-container');
+      const typingDiv = document.createElement('div');
+      typingDiv.id = 'typing-indicator';
+      typingDiv.className = 'flex gap-3';
+      typingDiv.innerHTML = `
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div class="message-assistant rounded-2xl rounded-tl-md px-4 py-3">
+          <div class="flex gap-1">
+            <div class="typing-dot w-2 h-2 rounded-full bg-white/60"></div>
+            <div class="typing-dot w-2 h-2 rounded-full bg-white/60"></div>
+            <div class="typing-dot w-2 h-2 rounded-full bg-white/60"></div>
+          </div>
+        </div>
+      `;
+      container.appendChild(typingDiv);
+      scrollToBottom();
+    }
+
+    function removeTypingIndicator() {
+      const indicator = document.getElementById('typing-indicator');
+      if (indicator) indicator.remove();
+    }
+
+    function scrollToBottom() {
+      const container = document.getElementById('chat-container');
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function showToast(message) {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    async function sendMessage(content, type = 'text') {
+      if (!content.trim() && type === 'text') return;
+      
+      if (messages.length >= 999) {
+        showToast('Достигнут лимит сообщений. Пожалуйста, очистите историю.');
+        return;
+      }
+      
+      const userMessage = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: content,
+        type: type,
+        timestamp: new Date().toISOString()
+      };
+      
+      if (window.dataSdk) {
+        const result = await window.dataSdk.create(userMessage);
+        if (!result.isOk) {
+          showToast('Ошибка отправки сообщения');
+          return;
+        }
+      }
+      
+      // Clear input
+      document.getElementById('message-input').value = '';
+      currentImage = null;
+      document.getElementById('image-preview-container').classList.add('hidden');
+      
+      // Show typing indicator
+      showTypingIndicator();
+      
+      // Simulate AI response after delay
+      setTimeout(async () => {
+        removeTypingIndicator();
+        
+        let responseType = type === 'image' ? 'image' : type === 'voice' ? 'voice' : detectMessageType(content);
+        const aiResponse = getAIResponse(responseType, content);
+        
+        const assistantMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: aiResponse,
+          type: 'text',
+          timestamp: new Date().toISOString()
+        };
+        
+        if (window.dataSdk) {
+          await window.dataSdk.create(assistantMessage);
+        }
+      }, 1500 + Math.random() * 1000);
+    }
+
+    // Event Listeners
+    document.getElementById('send-btn').addEventListener('click', () => {
+      const input = document.getElementById('message-input');
+      const type = currentImage ? 'image' : 'text';
+      sendMessage(input.value || 'Отправлено изображение', type);
+    });
+
+    document.getElementById('message-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const type = currentImage ? 'image' : 'text';
+        sendMessage(e.target.value || 'Отправлено изображение', type);
+      }
+    });
+
+    // Auto-resize textarea
+    document.getElementById('message-input').addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    // Image upload
+    document.getElementById('attach-btn').addEventListener('click', () => {
+      document.getElementById('file-input').click();
+    });
+
+    document.getElementById('file-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          currentImage = event.target.result;
+          document.getElementById('image-preview').src = currentImage;
+          document.getElementById('image-name').textContent = file.name;
+          document.getElementById('image-preview-container').classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    document.getElementById('remove-image').addEventListener('click', () => {
+      currentImage = null;
+      document.getElementById('image-preview-container').classList.add('hidden');
+      document.getElementById('file-input').value = '';
+    });
+
+    // Voice recording
+    document.getElementById('voice-btn').addEventListener('click', async () => {
+      const voiceBtn = document.getElementById('voice-btn');
+      const recordingIndicator = document.getElementById('recording-indicator');
+      
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        return;
+      }
+      
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        
+        mediaRecorder.ondataavailable = (e) => {
+          audioChunks.push(e.data);
+        };
+        
+        mediaRecorder.onstop = () => {
+          stream.getTracks().forEach(track => track.stop());
+          voiceBtn.classList.remove('recording');
+          recordingIndicator.classList.add('hidden');
+          clearInterval(recordingTimer);
+          
+          const duration = Math.floor((Date.now() - recordingStartTime) / 1000);
+          sendMessage(`Голосовое сообщение (${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')})`, 'voice');
+        };
+        
+        mediaRecorder.start();
+        voiceBtn.classList.add('recording');
+        recordingIndicator.classList.remove('hidden');
+        recordingStartTime = Date.now();
+        
+        recordingTimer = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+          document.getElementById('record-time').textContent = 
+            `${Math.floor(elapsed / 60)}:${(elapsed % 60).toString().padStart(2, '0')}`;
+        }, 1000);
+        
+      } catch (err) {
+        showToast('Не удалось получить доступ к микрофону');
+      }
+    });
+
+    document.getElementById('stop-record').addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+      }
+    });
+
+    // Initial UI update
+    updateUI();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d81bbffa1e1a051',t:'MTc3MjgwNDAyOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
